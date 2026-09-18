@@ -1,16 +1,9 @@
 name = "tt11-tracker"
-main = "src/index.js"
 compatibility_date = "2026-09-01"
+pages_build_output_dir = "public"
 
-# The PWA itself — index.html, styles.css, app.js, icons, sw.js.
-# Any request that isn't handled by src/index.js (i.e. not /api/*) falls
-# through to these static files.
-[assets]
-directory = "./public"
-binding = "ASSETS"
-
-# One R2 object per match — see src/index.js for the key/metadata scheme.
-# Create the bucket first with `wrangler r2 bucket create tt11-tracker-matches`
+# One R2 object per match — see functions/_lib/matches.js for the key/metadata
+# scheme. Create the bucket first with `wrangler r2 bucket create tt11-tracker-matches`
 # (see README step 1); the name just needs to match here.
 [[r2_buckets]]
 binding = "MATCHES"

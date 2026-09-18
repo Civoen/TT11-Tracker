@@ -3,7 +3,7 @@
 // Sheet export into the app's /api/matches endpoint.
 //
 // Usage:
-//   node scripts/import-from-sheet.mjs <file.csv> [file2.csv ...] --url https://tt11-tracker.<you>.workers.dev
+//   node scripts/import-from-sheet.mjs <file.csv> [file2.csv ...] --url https://tt11-tracker.pages.dev
 //   node scripts/import-from-sheet.mjs 2026.csv --dry-run          # preview only, no writes
 //   node scripts/import-from-sheet.mjs 2026.csv --url http://localhost:8787
 //
