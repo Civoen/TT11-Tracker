@@ -54,7 +54,8 @@ a { color: inherit; text-decoration: none; }
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: var(--page);
   display: flex;
   flex-direction: column;
@@ -113,6 +114,17 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* The `hidden` attribute is how app.js switches views (see switchView() in
+   app.js). Browsers apply `[hidden] { display: none }` themselves, but at
+   the same specificity as the `.view` rule above, and an author rule always
+   wins over that user-agent default — so without this, every view's own
+   `display: flex` silently overrides `hidden` and all four views render
+   stacked on one page. This rule has higher specificity than `.view` alone,
+   so it wins instead. */
+.view[hidden] {
+  display: none;
 }
 
 .page-heading { display: flex; flex-direction: column; gap: 2px; }
@@ -552,7 +564,8 @@ a { color: inherit; text-decoration: none; }
 @media (min-width: 481px) {
   body { display: flex; justify-content: center; padding-block: 24px; }
   #app {
-    min-height: min(844px, calc(100dvh - 48px));
+    height: min(844px, calc(100dvh - 48px));
+    max-height: min(844px, calc(100dvh - 48px));
     border-radius: 28px;
     box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
     border: 1px solid #000;

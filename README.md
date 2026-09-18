@@ -107,24 +107,35 @@ a match logged on either one shows up for both after a refresh/reopen.
 
 ## Importing historical data from the spreadsheet
 
-If you've been tracking matches in a Google Sheet, `scripts/import-from-sheet.mjs`
-is a one-time importer for it. It expects the layout of the "ElevenVR
-Championship" sheet: a date column, followed by up to 15 (Adam, Dave)
-best-of-3 score pairs per day (e.g. `1,2` = Dave won that match 2-1), with
-`NO GAME` or a blank row meaning no play that day.
+If you've been tracking matches in a Google Sheet, there's a one-time
+importer for it. It expects the layout of the "ElevenVR Championship"
+sheet: a date column, followed by up to 15 (Adam, Dave) best-of-3 score
+pairs per day (e.g. `1,2` = Dave won that match 2-1), with `NO GAME` or a
+blank row meaning no play that day.
 
 Export the sheet first — open the tab for a given year, then **File →
 Download → Comma Separated Values (.csv)**. If your history spans more
 than one year, each year is likely its own tab; export each one
-separately (the script takes multiple files in one run).
+separately.
+
+**No terminal? Use the in-app importer** — open `https://tt11-tracker.pages.dev/import`
+in Safari or Chrome (works on your phone too), choose your CSV file(s),
+tap **Preview** to see a parsed summary (including a cross-check against
+the sheet's own monthly "MONTH WINNER" rows) with nothing sent anywhere
+yet, then tap **Import**. It's safe to run more than once — matches
+already present are skipped (matched by date + match number), so if it's
+interrupted partway through, running it again just picks up where it left
+off. This page ships with the app; there's nothing extra to deploy.
+
+**Prefer a terminal?** The same logic is in
+`scripts/import-from-sheet.mjs`:
 
 ```
 npm install
 node scripts/import-from-sheet.mjs 2025.csv 2026.csv --dry-run
 ```
 
-`--dry-run` parses everything and prints a summary — including a
-cross-check against the sheet's own monthly "MONTH WINNER" rows — without
+`--dry-run` parses everything and prints the same kind of summary without
 sending anything anywhere. Once that looks right:
 
 ```
@@ -133,10 +144,6 @@ node scripts/import-from-sheet.mjs 2025.csv 2026.csv --url https://tt11-tracker.
 
 (or `--url http://localhost:8787` against `npm run dev` first, if you'd
 rather test against a local copy before touching the real bucket).
-
-It's safe to re-run — matches already present are skipped (matched by
-date + match number), so if a run fails partway through, running it again
-just picks up where it left off.
 
 **One caveat**: the sheet records each match's *final* score, not the
 order games were played in. For any match that went to a deciding third
