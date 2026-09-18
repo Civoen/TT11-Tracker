@@ -92,6 +92,47 @@ match logged on either one shows up for both after a refresh/reopen.
 - Deleting a match is a single R2 delete of that one object — no rewriting
   of a shared file.
 
+## Importing historical data from the spreadsheet
+
+If you've been tracking matches in a Google Sheet, `scripts/import-from-sheet.mjs`
+is a one-time importer for it. It expects the layout of the "ElevenVR
+Championship" sheet: a date column, followed by up to 15 (Adam, Dave)
+best-of-3 score pairs per day (e.g. `1,2` = Dave won that match 2-1), with
+`NO GAME` or a blank row meaning no play that day.
+
+Export the sheet first — open the tab for a given year, then **File →
+Download → Comma Separated Values (.csv)**. If your history spans more
+than one year, each year is likely its own tab; export each one
+separately (the script takes multiple files in one run).
+
+```
+npm install
+node scripts/import-from-sheet.mjs 2025.csv 2026.csv --dry-run
+```
+
+`--dry-run` parses everything and prints a summary — including a
+cross-check against the sheet's own monthly "MONTH WINNER" rows — without
+sending anything anywhere. Once that looks right:
+
+```
+node scripts/import-from-sheet.mjs 2025.csv 2026.csv --url https://tt11-tracker.<you>.workers.dev
+```
+
+(or `--url http://localhost:8787` against `npm run dev` first, if you'd
+rather test against a local copy before touching the real bucket).
+
+It's safe to re-run — matches already present are skipped (matched by
+date + match number), so if a run fails partway through, running it again
+just picks up where it left off.
+
+**One caveat**: the sheet records each match's *final* score, not the
+order games were played in. For any match that went to a deciding third
+game, the importer reconstructs a plausible order (the decider is always
+credited to whoever actually won — the only way a real best-of-3 can end)
+so match winners, day winners, and total game-win counts all come out
+accurate; only the exact game-by-game sequence for 2-1 matches is
+synthetic, since the sheet never captured that.
+
 ## Local development
 
 ```
