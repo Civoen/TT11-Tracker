@@ -8,7 +8,6 @@ const PLAYERS = {
 };
 
 const PLAY_DAYS = ["Tue", "Wed", "Thu"];
-const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CACHE_KEY = "tt11-matches-cache";
 
 const state = {
@@ -16,7 +15,6 @@ const state = {
   loaded: false,
   online: navigator.onLine,
   view: "home",
-  historyFilter: "all",
   log: {
     date: null,
     dayOfWeek: null,
@@ -41,12 +39,6 @@ function addDays(date, n) {
 
 function todayDate() {
   return new Date();
-}
-
-function weekdayAbbr(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return WEEKDAY_ABBR[date.getDay()];
 }
 
 function formatDateLong(dateStr) {
@@ -404,13 +396,8 @@ function renderLog() {
 function renderHistory() {
   const root = document.getElementById("view-history");
   const dates = sessionDates().sort().reverse();
-  const filtered = state.historyFilter === "all"
-    ? dates
-    : dates.filter((d) => weekdayAbbr(d) === state.historyFilter);
 
-  const filterChip = (label, key) => `<div class="filter-chip ${state.historyFilter === key ? "active" : ""}" data-action="filter-history" data-day="${key}">${label}</div>`;
-
-  const sessions = filtered.map((dateStr) => {
+  const sessions = dates.map((dateStr) => {
     const dayMatches = matchesForDate(dateStr).sort((a, b) => a.matchNumber - b.matchNumber);
     const { adam, dave } = winsFor(dayMatches);
     const winner = adam === dave ? "tie" : adam > dave ? "adam" : "dave";
@@ -419,25 +406,35 @@ function renderHistory() {
     const dots = dayMatches.map((m) => `<div class="dot ${m.winner}"></div>`).join("");
 
     return `
-      <div class="card session-card">
-        <div class="session-head">
-          <span class="session-date">${formatDateLong(dateStr)}</span>
-          <span class="day-badge ${badgeClass}">${badgeLabel}</span>
+      <div class="swipe-item" data-date="${dateStr}">
+        <div class="swipe-actions">
+          <button class="swipe-btn edit" data-action="edit-day" data-date="${dateStr}" type="button" aria-label="Edit ${formatDateLong(dateStr)}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+            <span>Edit</span>
+          </button>
+          <button class="swipe-btn delete" data-action="delete-day" data-date="${dateStr}" type="button" aria-label="Delete ${formatDateLong(dateStr)}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path></svg>
+            <span>Delete</span>
+          </button>
         </div>
-        <span class="session-sub">${dayMatches.length} match${dayMatches.length === 1 ? "" : "es"} · Adam ${adam}–${dave} Bo3</span>
-        <div class="dots">${dots}</div>
+        <div class="swipe-content card session-card">
+          <div class="session-head">
+            <span class="session-date">${formatDateLong(dateStr)}</span>
+            <span class="day-badge ${badgeClass}">${badgeLabel}</span>
+          </div>
+          <span class="session-sub">${dayMatches.length} match${dayMatches.length === 1 ? "" : "es"} · Adam ${adam}–${dave} Bo3</span>
+          <div class="dots">${dots}</div>
+        </div>
       </div>`;
   }).join("");
 
   root.innerHTML = `
     <div class="page-heading"><h1>History</h1><p>${dates.length} session${dates.length === 1 ? "" : "s"} logged</p></div>
-    <div class="filter-row">
-      ${filterChip("All", "all")}${filterChip("Tue", "Tue")}${filterChip("Wed", "Wed")}${filterChip("Thu", "Thu")}
-    </div>
     <div style="display:flex;flex-direction:column;gap:12px">
-      ${sessions || `<div class="empty-state">No sessions match this filter yet.</div>`}
+      ${sessions || `<div class="empty-state">No sessions logged yet.</div>`}
     </div>
   `;
+  setupSwipeHandlers(root);
 }
 
 function renderStats() {
@@ -530,9 +527,74 @@ function renderStats() {
   `;
 }
 
+// ---------------------------------------------------------------- swipe-to-reveal (History)
+
+const SWIPE_OPEN_X = -152; // width of the two revealed action buttons
+
+function closeSwipe(item) {
+  if (!item) return;
+  const content = item.querySelector(".swipe-content");
+  content.style.transition = "transform 0.2s ease";
+  content.style.transform = "translateX(0px)";
+  item.classList.remove("open");
+}
+
+function closeAllSwipes(except) {
+  for (const item of document.querySelectorAll(".swipe-item.open")) {
+    if (item !== except) closeSwipe(item);
+  }
+}
+
+function setupSwipeHandlers(root) {
+  for (const content of root.querySelectorAll(".swipe-content")) {
+    const item = content.closest(".swipe-item");
+    let startX = 0, startY = 0, startTranslate = 0, dragging = false, moved = false;
+
+    content.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      closeAllSwipes(item);
+      startX = event.clientX;
+      startY = event.clientY;
+      startTranslate = item.classList.contains("open") ? SWIPE_OPEN_X : 0;
+      dragging = true;
+      moved = false;
+      content.style.transition = "none";
+      content.setPointerCapture(event.pointerId);
+    });
+
+    content.addEventListener("pointermove", (event) => {
+      if (!dragging) return;
+      const dx = event.clientX - startX;
+      const dy = event.clientY - startY;
+      if (!moved && Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      moved = true;
+      const translate = Math.min(0, Math.max(SWIPE_OPEN_X, startTranslate + dx));
+      content.style.transform = `translateX(${translate}px)`;
+    });
+
+    const endDrag = (event) => {
+      if (!dragging) return;
+      dragging = false;
+      content.style.transition = "transform 0.2s ease";
+      if (!moved) {
+        if (item.classList.contains("open")) closeSwipe(item);
+        return;
+      }
+      const current = startTranslate + (event.clientX - startX);
+      const shouldOpen = current < SWIPE_OPEN_X / 2;
+      content.style.transform = shouldOpen ? `translateX(${SWIPE_OPEN_X}px)` : "translateX(0px)";
+      item.classList.toggle("open", shouldOpen);
+    };
+
+    content.addEventListener("pointerup", endDrag);
+    content.addEventListener("pointercancel", endDrag);
+  }
+}
+
 // ---------------------------------------------------------------- navigation
 
 function switchView(name) {
+  closeAllSwipes();
   state.view = name;
   for (const section of document.querySelectorAll(".view")) {
     section.hidden = section.dataset.view !== name;
@@ -610,10 +672,35 @@ document.getElementById("app").addEventListener("click", async (event) => {
     }
   }
 
-  if (action === "filter-history") {
-    state.historyFilter = target.dataset.day;
-    renderHistory();
+  if (action === "edit-day") {
+    resetLogDraft(target.dataset.date);
+    switchView("log");
   }
+
+  if (action === "delete-day") {
+    const date = target.dataset.date;
+    const dayMatches = matchesForDate(date);
+    const count = dayMatches.length;
+    if (!confirm(`Delete all ${count} match${count === 1 ? "" : "es"} on ${formatDateLong(date)}? This can't be undone.`)) {
+      closeSwipe(target.closest(".swipe-item"));
+      return;
+    }
+    try {
+      await Promise.all(dayMatches.map((m) => deleteMatch(m.id)));
+      toast("Session deleted");
+      await loadMatches();
+    } catch (err) {
+      toast(err.message, true);
+      await loadMatches();
+    }
+  }
+});
+
+// A tap that lands outside any swipe card (a filter chip, the page heading,
+// blank space) should close whichever session's Edit/Delete is revealed.
+document.getElementById("app").addEventListener("pointerdown", (event) => {
+  const item = event.target.closest(".swipe-item");
+  closeAllSwipes(item);
 });
 
 document.getElementById("status-btn").addEventListener("click", () => {
