@@ -96,7 +96,8 @@ a match logged on either one shows up for both after a refresh/reopen.
   listing every match (Home, History, Stats) is one R2 `list()` call that
   reads metadata only — it never has to fetch hundreds of individual
   object bodies just to render a screen.
-- A **day** (Tuesday / Wednesday / Thursday) isn't stored separately — it's
+- A **day** (any weekday — Mon and Fri included, since matches occasionally
+  happen outside the usual Tue/Wed/Thu) isn't stored separately — it's
   just every match sharing the same date. "Who won the day" is computed as
   whoever won more matches on that date.
 - All stats (streaks, win %, day-of-week breakdown) are computed in the

@@ -7,7 +7,8 @@ const PLAYERS = {
   dave: { name: "Dave", short: "Dave" },
 };
 
-const PLAY_DAYS = ["Tue", "Wed", "Thu"];
+const PLAY_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const CACHE_KEY = "tt11-matches-cache";
 
 const state = {
@@ -50,16 +51,20 @@ function formatDateLong(dateStr) {
   return `${weekday}, ${day} ${month}`;
 }
 
-// This week's Tue / Wed / Thu, as real dates, Monday-start week.
+// Full weekday abbreviation for an arbitrary ISO date — used when a date
+// picked outside the current week (a previous session, or an edit from
+// History) isn't one of PLAY_DAYS's dates.
+function abbrForDate(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return WEEKDAY_ABBR[new Date(y, m - 1, d).getDay()];
+}
+
+// This week's play days (PLAY_DAYS, Monday-start week), as real dates.
 function currentPlayDates(reference = todayDate()) {
   const day = reference.getDay(); // 0 Sun .. 6 Sat
   const mondayOffset = day === 0 ? -6 : 1 - day;
   const monday = addDays(reference, mondayOffset);
-  return [
-    { abbr: "Tue", date: toISO(addDays(monday, 1)) },
-    { abbr: "Wed", date: toISO(addDays(monday, 2)) },
-    { abbr: "Thu", date: toISO(addDays(monday, 3)) },
-  ];
+  return PLAY_DAYS.map((abbr, i) => ({ abbr, date: toISO(addDays(monday, i)) }));
 }
 
 function escapeHtml(str) {
@@ -204,6 +209,15 @@ function resetLogDraft(preferredDate) {
   const todayIso = toISO(todayDate());
   let chosen = dates.find((d) => d.date === preferredDate);
 
+  // An explicit date that isn't one of this week's play days — either picked
+  // via the "log a previous date" input, or opened from History's Edit
+  // action on an older session. Honour it rather than silently falling back
+  // to this week (that used to be a bug: editing a January session would
+  // quietly reopen a date from the current week instead).
+  if (!chosen && preferredDate) {
+    chosen = { date: preferredDate, abbr: abbrForDate(preferredDate) };
+  }
+
   if (!chosen) {
     chosen =
       dates.find((d) => d.date === todayIso) ||
@@ -250,7 +264,7 @@ function renderHome() {
 
   if (totalMatches === 0) {
     root.innerHTML = `
-      <div class="page-heading"><h1>TT11 Tracker</h1><p>Adam vs Dave, best of 3s, Tue / Wed / Thu</p></div>
+      <div class="page-heading"><h1>TT11 Tracker</h1><p>Adam vs Dave, best of 3s, Mon–Fri</p></div>
       <div class="card empty-state">No matches logged yet.<br>Tap <strong>Log</strong> below to start your first session.</div>
     `;
     return;
@@ -283,7 +297,7 @@ function renderHome() {
     : "";
 
   root.innerHTML = `
-    <div class="page-heading"><h1>TT11 Tracker</h1><p>Adam vs Dave, best of 3s, Tue / Wed / Thu</p></div>
+    <div class="page-heading"><h1>TT11 Tracker</h1><p>Adam vs Dave, best of 3s, Mon–Fri</p></div>
 
     <div class="hero-card">
       <span class="hero-eyebrow">All-time head-to-head</span>
@@ -320,12 +334,15 @@ function renderLog() {
   if (!state.log.date) resetLogDraft();
 
   const dates = currentPlayDates();
+  const isThisWeek = dates.some((d) => d.date === state.log.date);
   const chips = dates.map((d) => {
     const selected = d.date === state.log.date;
     return `<div class="day-chip ${selected ? "selected" : ""}" data-action="select-day" data-date="${d.date}" data-abbr="${d.abbr}" role="button" tabindex="0">
       <span class="day-label">${d.abbr.toUpperCase()}</span>
     </div>`;
   }).join("");
+
+  const todayIso = toISO(todayDate());
 
   const todaysMatches = matchesForDate(state.log.date).sort((a, b) => a.matchNumber - b.matchNumber);
   const matchNumber = draftMatchNumber();
@@ -370,9 +387,14 @@ function renderLog() {
     : "";
 
   root.innerHTML = `
-    <div class="page-heading"><h1>Log Match</h1><p>${formatDateLong(state.log.date)}</p></div>
+    <div class="page-heading"><h1>Log Match</h1><p>${formatDateLong(state.log.date)}${isThisWeek ? "" : " · Previous date"}</p></div>
 
     <div class="chip-row">${chips}</div>
+
+    <div class="date-picker-row">
+      <label class="section-label" style="text-transform:none;letter-spacing:0" for="log-date-input">Or log a previous date</label>
+      <input type="date" id="log-date-input" class="date-input" data-action="pick-custom-date" value="${state.log.date}" max="${todayIso}">
+    </div>
 
     <div class="progress-row">
       <span class="section-label" style="text-transform:none;letter-spacing:0">Match ${matchNumber} of ${target}</span>
@@ -701,6 +723,15 @@ document.getElementById("app").addEventListener("click", async (event) => {
 document.getElementById("app").addEventListener("pointerdown", (event) => {
   const item = event.target.closest(".swipe-item");
   closeAllSwipes(item);
+});
+
+// The native date input fires "change", not "click", so it needs its own
+// delegated listener rather than the data-action click handler above.
+document.getElementById("app").addEventListener("change", (event) => {
+  const target = event.target.closest('[data-action="pick-custom-date"]');
+  if (!target || !target.value) return;
+  resetLogDraft(target.value);
+  renderLog();
 });
 
 document.getElementById("status-btn").addEventListener("click", () => {
