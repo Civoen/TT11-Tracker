@@ -296,6 +296,11 @@ function renderHome() {
        </div>`
     : "";
 
+  const matchMargin = Math.abs(totals.adam - totals.dave);
+  const matchLeader = totals.adam > totals.dave ? "adam" : totals.dave > totals.adam ? "dave" : null;
+  const matchDiffColor = matchLeader === "adam" ? "var(--green-bright)" : matchLeader === "dave" ? "var(--blue-bright)" : "#6B6B72";
+  const matchDiffLabel = matchLeader ? `+${matchMargin}` : "LEVEL";
+
   root.innerHTML = `
     <div class="page-heading"><h1>TT11 Tracker</h1><p>Adam vs Dave, best of 3s, Mon–Fri</p></div>
 
@@ -303,7 +308,10 @@ function renderHome() {
       <span class="hero-eyebrow">All-time head-to-head</span>
       <div class="hero-row">
         <div class="hero-player"><span class="name" style="color:var(--green-bright)">ADAM</span><span class="num">${totals.adam}</span></div>
-        <span class="hero-vs">MATCHES</span>
+        <div class="hero-vs-col">
+          <span class="hero-vs">MATCHES</span>
+          <span class="hero-diff" style="color:${matchDiffColor}">${matchDiffLabel}</span>
+        </div>
         <div class="hero-player right"><span class="name" style="color:var(--blue-bright)">DAVE</span><span class="num">${totals.dave}</span></div>
       </div>
       <div class="split-bar">
